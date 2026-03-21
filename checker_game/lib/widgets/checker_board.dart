@@ -6,12 +6,14 @@ class CheckerBoard extends StatefulWidget {
   final bool interactive;
   final Function(CheckersGame)? onGameStateChanged;
   final bool autoRotate;
+  final Set<String> undoHighlightedSquares;
 
   const CheckerBoard({
     super.key,
     this.interactive = false,
     this.onGameStateChanged,
     this.autoRotate = true,
+    this.undoHighlightedSquares = const {},
   });
 
   @override
@@ -59,6 +61,8 @@ class _CheckerBoardState extends State<CheckerBoard> {
           Piece piece = _game.board.getPiece(row, col);
           bool isSelected = _game.isSelected(row, col);
           bool isValidMoveDestination = _game.isValidMove(row, col);
+          bool isUndoHighlighted =
+              widget.undoHighlightedSquares.contains('$row,$col');
 
           Color backgroundColor = isDark ? AppColors.boardDark : AppColors.boardLight;
 
@@ -69,6 +73,10 @@ class _CheckerBoardState extends State<CheckerBoard> {
           // Highlight valid move destinations
           else if (isValidMoveDestination) {
             backgroundColor = AppColors.greenOn.withOpacity(0.4);
+          }
+          // Highlight tiles affected by the undone move
+          else if (isUndoHighlighted) {
+            backgroundColor = AppColors.gold.withOpacity(0.28);
           }
 
           Widget? pieceWidget;
