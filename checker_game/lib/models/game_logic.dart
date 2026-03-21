@@ -85,23 +85,36 @@ class CheckersGame {
     }
   }
 
+  bool _playerHasAnyJumpsAvailable() {
+    // Check if current player has any mandatory jumps available anywhere on the board
+    for (int row = 0; row < 8; row++) {
+      for (int col = 0; col < 8; col++) {
+        if (_board.getPiece(row, col).color == _currentPlayer) {
+          List<Move> jumpMoves = _getJumpMoves(row, col, {});
+          if (jumpMoves.isNotEmpty) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
   List<Move> _getValidMoves(int row, int col) {
     Piece piece = _board.getPiece(row, col);
     if (piece.isEmpty || piece.color != _currentPlayer) {
       return [];
     }
 
-    List<Move> moves = [];
-
-    // Check for jump moves first (mandatory if available)
-    List<Move> jumpMoves = _getJumpMoves(row, col, {});
-    if (jumpMoves.isNotEmpty) {
-      return jumpMoves;
+    // Check if any jumps are available for the current player on the board
+    bool playerHasJumps = _playerHasAnyJumpsAvailable();
+    if (playerHasJumps) {
+      // If jumps are available anywhere, only return jumps for this piece
+      return _getJumpMoves(row, col, {});
     }
 
-    // If no jumps available, check regular moves
-    moves.addAll(_getRegularMoves(row, col));
-    return moves;
+    // If no jumps available, return regular moves
+    return _getRegularMoves(row, col);
   }
 
   List<Move> _getRegularMoves(int row, int col) {

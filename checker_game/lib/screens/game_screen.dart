@@ -1,21 +1,102 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:math';
 import '../theme/app_colors.dart';
 import '../widgets/checker_board.dart';
 import '../widgets/profile_chip.dart';
 import '../widgets/auto_rotate_toggle.dart';
 import '../models/index.dart';
+import '../services/settings_service.dart';
 
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key});
+  final String player1Name;
+  final String player2Name;
+
+  const GameScreen({
+    super.key,
+    required this.player1Name,
+    required this.player2Name,
+  });
 
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
 
 class _GameScreenState extends State<GameScreen> {
-  bool _isAutoRotateOn = true;
+  late bool _isAutoRotateOn;
+  bool _hasShownGameOverFlow = false;
+  final Random _random = Random();
+  late PieceColor _player1Color;
+  int _boardResetVersion = 0;
   CheckersGame? _gameState;
   List<String> _gameLog = [];
+  Set<String> _undoHighlightedSquares = {};
+  Timer? _undoHighlightTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    final settingsService = SettingsService();
+    _isAutoRotateOn = settingsService.autoRotateDefault;
+    _startNewGame();
+  }
+
+  PieceColor get _player2Color =>
+      _player1Color == PieceColor.black ? PieceColor.white : PieceColor.black;
+
+  String _colorLabel(PieceColor color) {
+    return color == PieceColor.black ? 'Black' : 'White';
+  }
+
+  String _playerNameByColor(PieceColor color) {
+    return color == _player1Color ? widget.player1Name : widget.player2Name;
+  }
+
+  String _playerLabelByColor(PieceColor color) {
+    return '${_playerNameByColor(color)} (${_colorLabel(color)})';
+  }
+
+  void _startNewGame() {
+    _player1Color = _random.nextBool() ? PieceColor.black : PieceColor.white;
+    _resetCurrentGame();
+  }
+
+  void _resetCurrentGame() {
+    // Reset game state while preserving player colors
+    _gameState = CheckersGame();
+    _gameLog = [];
+    _undoHighlightedSquares = {};
+    _hasShownGameOverFlow = false;
+    _boardResetVersion++;
+  }
+
+  String _squareKey(int row, int col) => '$row,$col';
+
+  Set<String> _getSquaresFromMove(Move move) {
+    final squares = <String>{
+      _squareKey(move.fromRow, move.fromCol),
+      _squareKey(move.toRow, move.toCol),
+    };
+
+    if (move.capturedPositions != null) {
+      for (int i = 0; i < move.capturedPositions!.length; i += 2) {
+        squares.add(_squareKey(move.capturedPositions![i], move.capturedPositions![i + 1]));
+      }
+    }
+
+    return squares;
+  }
+
+  void _showUndoHighlights(Set<String> highlightedSquares) {
+    _undoHighlightTimer?.cancel();
+    _undoHighlightedSquares = highlightedSquares;
+    _undoHighlightTimer = Timer(const Duration(milliseconds: 950), () {
+      if (!mounted) return;
+      setState(() {
+        _undoHighlightedSquares = {};
+      });
+    });
+  }
 
   String _toBoardSquare(int row, int col) {
     const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
@@ -28,6 +109,58 @@ class _GameScreenState extends State<GameScreen> {
       _gameState = game;
       _updateGameLog();
     });
+
+    if (game.isGameOver) {
+      _maybeShowEndGameFlow();
+    } else {
+      _hasShownGameOverFlow = false;
+    }
+  }
+
+  void _maybeShowEndGameFlow() {
+    if (_hasShownGameOverFlow || _gameState == null || !_gameState!.isGameOver) {
+      return;
+    }
+
+    final winnerColor = _gameState!.winner;
+    if (winnerColor == null) return;
+
+    _hasShownGameOverFlow = true;
+    final winnerName = _playerNameByColor(winnerColor);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      final action = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: Text('$winnerName Wins!'),
+            content: const Text('What would you like to do next?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, 'quit'),
+                child: const Text('Quit'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(dialogContext, 'playAgain'),
+                child: const Text('Play Again'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (!mounted) return;
+      if (action == 'playAgain') {
+        setState(() {
+          _resetCurrentGame();
+        });
+      } else if (action == 'quit') {
+        Navigator.pop(context);
+      }
+    });
   }
 
   void _updateGameLog() {
@@ -35,7 +168,8 @@ class _GameScreenState extends State<GameScreen> {
     if (_gameState != null) {
       for (int i = 0; i < _gameState!.moveHistory.length; i++) {
         Move move = _gameState!.moveHistory[i];
-        final player = i.isEven ? 'Black' : 'White';
+        final movingColor = i.isEven ? PieceColor.black : PieceColor.white;
+        final player = _playerLabelByColor(movingColor);
         final from = _toBoardSquare(move.fromRow, move.fromCol);
         final to = _toBoardSquare(move.toRow, move.toCol);
         final action = move.isJump ? 'captures' : 'to';
@@ -47,32 +181,71 @@ class _GameScreenState extends State<GameScreen> {
 
   void _undoMove() {
     if (_gameState != null && _gameState!.moveHistory.isNotEmpty) {
+      final undoneMove = _gameState!.moveHistory.last;
+      final undoSquares = _getSquaresFromMove(undoneMove);
+
       setState(() {
         _gameState!.undoMove();
         _updateGameLog();
+        _showUndoHighlights(undoSquares);
       });
     }
   }
 
   void _resetGame() {
+    _undoHighlightTimer?.cancel();
     setState(() {
-      _gameState = CheckersGame();
-      _gameLog = [];
+      _resetCurrentGame();
     });
+  }
+
+  void _confirmQuit() {
+    showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Quit Game?'),
+          content: const Text('Are you sure you want to quit? The current game will be lost.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.redNotif,
+              ),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Quit', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    ).then((confirmed) {
+      if (confirmed == true && mounted) {
+        Navigator.pop(context);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _undoHighlightTimer?.cancel();
+    super.dispose();
   }
 
   String _getCurrentPlayerName() {
     if (_gameState == null) return '';
-    return _gameState!.currentPlayer == PieceColor.black
-        ? 'Opponent (Black)'
-        : 'G4bbiru (White)';
+    final currentColor = _gameState!.currentPlayer;
+    return _playerLabelByColor(currentColor);
   }
 
   String _getGameStatus() {
     if (_gameState == null) return '';
     if (_gameState!.isGameOver) {
-      String winner =
-          _gameState!.winner == PieceColor.black ? 'Black (Opponent)' : 'White (G4bbiru)';
+      final winnerColor = _gameState!.winner;
+      if (winnerColor == null) return 'Game Over';
+      String winner = _playerLabelByColor(winnerColor);
       return 'Game Over - $winner Wins!';
     }
     return 'Current: ${_getCurrentPlayerName()}';
@@ -86,7 +259,7 @@ class _GameScreenState extends State<GameScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.screenFrame),
-          onPressed: () => Navigator.pop(context),
+          onPressed: _confirmQuit,
         ),
         title: const Text(
           'Play in Person',
@@ -103,7 +276,7 @@ class _GameScreenState extends State<GameScreen> {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                const ProfileChip(name: 'Opponent'),
+                ProfileChip(name: _playerLabelByColor(_player2Color)),
                 const SizedBox(height: 8),
                 Text(
                   _getGameStatus(),
@@ -124,18 +297,20 @@ class _GameScreenState extends State<GameScreen> {
                 child: AspectRatio(
                   aspectRatio: 1,
                   child: CheckerBoard(
+                    key: ValueKey(_boardResetVersion),
                     interactive: true,
                     onGameStateChanged: _onGameStateChanged,
                     autoRotate: _isAutoRotateOn,
+                    undoHighlightedSquares: _undoHighlightedSquares,
                   ),
                 ),
               ),
             ),
           ),
           
-          const Padding(
+          Padding(
             padding: EdgeInsets.all(16.0),
-            child: ProfileChip(name: 'G4bbiru'),
+            child: ProfileChip(name: _playerLabelByColor(_player1Color)),
           ),
           
           Container(
