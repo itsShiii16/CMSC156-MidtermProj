@@ -18,28 +18,30 @@ class BoardState {
     ];
   }
 
-  void _initializeBoard() {
+void _initializeBoard() {
     _board = List.generate(8, (i) => List.generate(8, (j) => const Piece.empty()));
 
+    int whiteIdCounter = 0;
     // Place white pieces (bottom rows: 5, 6, 7)
     for (int row = 5; row < 8; row++) {
       for (int col = 0; col < 8; col++) {
         if ((row + col) % 2 == 1) {
-          _board[row][col] = const Piece(color: PieceColor.white);
+          _board[row][col] = Piece(id: 'w_${whiteIdCounter++}', color: PieceColor.white);
         }
       }
     }
 
+    int blackIdCounter = 0;
     // Place black pieces (top rows: 0, 1, 2)
     for (int row = 0; row < 3; row++) {
       for (int col = 0; col < 8; col++) {
         if ((row + col) % 2 == 1) {
-          _board[row][col] = const Piece(color: PieceColor.black);
+          _board[row][col] = Piece(id: 'b_${blackIdCounter++}', color: PieceColor.black);
         }
       }
     }
   }
-
+  
   Piece getPiece(int row, int col) {
     if (row < 0 || row >= 8 || col < 0 || col >= 8) {
       return const Piece.empty();
