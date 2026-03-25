@@ -59,11 +59,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const Text(
-              'CHECKERS', // [cite: 2]
+              'CHECKERS', 
               style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold, letterSpacing: 2.0),
             ),
             const Text(
-              'MASTER STRATEGY', // [cite: 3]
+              'MASTER STRATEGY', 
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.5),
             ),
             const SizedBox(height: 24),
@@ -81,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
             
             const SizedBox(height: 32),
             ActionButton(
-              label: 'Start Game', // [cite: 4]
+              label: 'Start Game', 
               onPressed: () async {
                 final names = await Navigator.push<List<String>>(
                   context,
@@ -105,43 +105,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Pass and Play', // [cite: 5]
+              'Pass and Play', 
               style: TextStyle(fontSize: 14, color: AppColors.softGray),
             ),
-            
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const ProfileChip(name: 'G4biru', isSmall: true), // 
-                  
-                  // Trophy with Notification Badge
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: AppColors.gold, borderRadius: BorderRadius.circular(8)),
-                        child: const Icon(Icons.emoji_events, color: AppColors.screenFrame),
-                      ),
-                      Positioned(
-                        right: -4,
-                        top: -4,
-                        child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: const BoxDecoration(
-                            color: AppColors.redNotif,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      )
-                    ],
-                  ),
-                ],
-              ),
-            ),
+            const SizedBox(height: 24), // Added a little padding at the bottom for breathing room
           ],
         ),
       ),
