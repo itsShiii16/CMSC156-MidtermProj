@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../models/index.dart';
+import 'pulsing_highlight.dart'; // <-- 1. Import the new widget
 
 class CheckerBoard extends StatefulWidget {
   final bool interactive;
@@ -64,6 +65,12 @@ class _CheckerBoardState extends State<CheckerBoard> {
           bool isUndoHighlighted =
               widget.undoHighlightedSquares.contains('$row,$col');
 
+          // 2. Check if this specific piece is locked into a mid-jump sequence
+          bool isLockedPiece = _game.isPieceLocked(row, col);
+          
+          // 3. Check if ANY piece is currently mid-jump
+          bool isMidJumpSequence = _game.midJumpRow != null; 
+
           Color backgroundColor = isDark ? AppColors.boardDark : AppColors.boardLight;
 
           // Highlight selected piece
@@ -82,6 +89,21 @@ class _CheckerBoardState extends State<CheckerBoard> {
           Widget? pieceWidget;
           if (!piece.isEmpty) {
             pieceWidget = _buildPieceWidget(piece, isSelected);
+            
+            // 4. Wrap the piece in the PulsingHighlight if it's the locked piece
+            pieceWidget = PulsingHighlight(
+              isPulsing: isLockedPiece,
+              highlightColor: AppColors.gold, // Or any color you prefer
+              child: pieceWidget,
+            );
+
+            // 5. OPTIONAL UX: Dim other pieces if a mid-jump sequence is active
+            if (isMidJumpSequence && !isLockedPiece) {
+              pieceWidget = Opacity(
+                opacity: 0.4,
+                child: pieceWidget,
+              );
+            }
           }
 
           final String? fileLabel = row == 7 ? String.fromCharCode(97 + col) : null;
