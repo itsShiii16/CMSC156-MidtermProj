@@ -3,9 +3,11 @@ import '../theme/app_colors.dart';
 import '../widgets/checker_background.dart';
 import '../widgets/action_button.dart';
 import '../widgets/profile_chip.dart';
+import '../widgets/profile_avatar.dart';
 import '../services/settings_service.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,6 +18,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late SettingsService _settingsService;
+  static const String _profileHeroTag = 'home-profile-avatar';
 
   @override
   void initState() {
@@ -49,11 +52,27 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     },
                   ),
-                  IconButton(
-                    icon: Icon(
-                      _settingsService.soundEnabled ? Icons.volume_up : Icons.volume_off,
-                    ),
-                    onPressed: _toggleSound,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          _settingsService.soundEnabled ? Icons.volume_up : Icons.volume_off,
+                        ),
+                        onPressed: _toggleSound,
+                      ),
+                      const SizedBox(width: 4),
+                      ProfileAvatar(
+                        size: 44,
+                        heroTag: _profileHeroTag,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            ProfileScreen.route(heroTag: _profileHeroTag),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
